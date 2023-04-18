@@ -28,6 +28,7 @@ const CanMsg SUBARU_TX_MSGS[] = {
   {0x322, 0, 8},
   {0x40, 2, 8},
   {0x139, 2, 8}
+  {0x323, 0, 8},
 };
 #define SUBARU_TX_MSGS_LEN (sizeof(SUBARU_TX_MSGS) / sizeof(SUBARU_TX_MSGS[0]))
 
@@ -35,7 +36,8 @@ const CanMsg SUBARU_GEN2_TX_MSGS[] = {
   {0x122, 0, 8},
   {0x221, 1, 8},
   {0x321, 0, 8},
-  {0x322, 0, 8}
+  {0x322, 0, 8},
+  {0x323, 0, 8}
 };
 #define SUBARU_GEN2_TX_MSGS_LEN (sizeof(SUBARU_GEN2_TX_MSGS) / sizeof(SUBARU_GEN2_TX_MSGS[0]))
 
@@ -148,7 +150,7 @@ static int subaru_tx_hook(CANPacket_t *to_send) {
   return tx;
 }
 
-static int subaru_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int subaru_fwd_hook(int bus_num, int addr) {
   int bus_fwd = -1;
   int addr = GET_ADDR(to_fwd);
 
@@ -159,8 +161,8 @@ static int subaru_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
 	// 0x122 ES_LKAS || (addr == 0x122)
     // 0x139 Brake_Pedal  || (addr == 0x139)
 	// 0x146 Cruise_Buttons || (addr == 0x146)
-	// **** 0x11a ES_STEER_JP || (addr == 0x11a) 
-	// 0x174 Engine_Stop_Start   
+	// **** 0x11a ES_STEER_JP || (addr == 0x11a)
+	// 0x174 Engine_Stop_Start
 	// 0x660 STOP_START_STATE  || (addr == 0x660)
     int block_msg = (addr == 0x40) || (addr == 0x139);  // to forward ES_LKAS on bus 0 as well
     if (!block_msg) {
@@ -175,7 +177,7 @@ static int subaru_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
 	// 0x221 ES_Distance
     // 0x321 ES_DashStatus
     // 0x322 ES_LKAS_State
-    bool block_lkas = (addr == 0x122) || (addr == 0x146)  || (addr == 0x221) || (addr == 0x321) || (addr == 0x322);
+    bool block_lkas = (addr == 0x122) || (addr == 0x146)  || (addr == 0x221) || (addr == 0x321) || (addr == 0x322) || (addr == 0x323);
     if (!block_lkas) {
       bus_fwd = 0;  // Main CAN
     }
@@ -203,5 +205,3 @@ const safety_hooks subaru_hooks = {
   .tx_lin = nooutput_tx_lin_hook,
   .fwd = subaru_fwd_hook,
 };
-
-
