@@ -274,7 +274,6 @@ void generic_rx_checks(bool stock_ecu_detected) {
   if ((safety_mode_cnt > RELAY_TRNS_TIMEOUT) && stock_ecu_detected) {
     relay_malfunction_set();
   }
-  //generic_rx_checks
 }
 
 void relay_malfunction_set(void) {
@@ -620,7 +619,7 @@ bool steer_angle_cmd_checks(int desired_angle, bool steer_control_enabled, const
   bool violation = false;
   bool alka_enabled = alternative_experience & ALT_EXP_ALKA;
 
-  if (controls_allowed && steer_control_enabled) {
+  if ((controls_allowed || alka_enabled) && steer_control_enabled) {
     // convert floating point angle rate limits to integers in the scale of the desired angle on CAN,
     // add 1 to not false trigger the violation. also fudge the speed by 1 m/s so rate limits are
     // always slightly above openpilot's in case we read an updated speed in between angle commands
@@ -657,7 +656,7 @@ bool steer_angle_cmd_checks(int desired_angle, bool steer_control_enabled, const
   desired_angle_last = desired_angle;
 
   // Angle should either be 0 or same as current angle while not steering
-  if (!steer_control_enabled && !alka_enabled) {
+  if (!steer_control_enabled) {
     violation |= (limits.inactive_angle_is_zero ? (desired_angle != 0) :
                   max_limit_check(desired_angle, angle_meas.max + 1, angle_meas.min - 1));
   }
