@@ -14,8 +14,11 @@ const SteeringLimits VOLKSWAGEN_MQB_STEERING_LIMITS = {
 
 // longitudinal limits
 // acceleration in m/s2 * 1000 to avoid floating point math
-const int VOLKSWAGEN_MQB_MAX_ACCEL = 2000;
-const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;
+const LongitudinalLimits VOLKSWAGEN_MQB_LONG_LIMITS = {
+  .max_accel = 2000,
+  .min_accel = -3500,
+  .inactive_accel = 3010,  // VW sends one increment above the max range when inactive
+};
 
 #define MSG_ESP_19      0x0B2   // RX from ABS, for wheel speeds
 #define MSG_LH_EPS_03   0x09F   // RX from EPS, for driver steering torque
@@ -112,20 +115,21 @@ static const addr_checks* volkswagen_mqb_init(uint16_t param) {
 static int volkswagen_mqb_rx_hook(CANPacket_t *to_push) {
 
   bool valid = addr_safety_check(to_push, &volkswagen_mqb_rx_checks,
-                                 volkswagen_mqb_get_checksum, volkswagen_mqb_compute_crc, volkswagen_mqb_get_counter);
+                                 volkswagen_mqb_get_checksum, volkswagen_mqb_compute_crc, volkswagen_mqb_get_counter, NULL);
 
   if (valid && (GET_BUS(to_push) == 0U)) {
     int addr = GET_ADDR(to_push);
 
-    // Update in-motion state by sampling front wheel speeds
-    // Signal: ESP_19.ESP_VL_Radgeschw_02 (front left) in scaled km/h
-    // Signal: ESP_19.ESP_VR_Radgeschw_02 (front right) in scaled km/h
+    // Update in-motion state by sampling wheel speeds
     if (addr == MSG_ESP_19) {
-      int wheel_speed_fl = GET_BYTE(to_push, 4) | (GET_BYTE(to_push, 5) << 8);
-      int wheel_speed_fr = GET_BYTE(to_push, 6) | (GET_BYTE(to_push, 7) << 8);
-      // Check for average front speed in excess of 0.3m/s, 1.08km/h
-      // DBC speed scale 0.0075: 0.3m/s = 144, sum both wheels to compare
-      vehicle_moving = (wheel_speed_fl + wheel_speed_fr) > 288;
+      // sum 4 wheel speeds
+      int speed = 0;
+      for (uint8_t i = 0U; i < 8U; i += 2U) {
+        int wheel_speed = GET_BYTE(to_push, i) | (GET_BYTE(to_push, i + 1U) << 8);
+        speed += wheel_speed;
+      }
+      // Check all wheel speeds for any movement
+      vehicle_moving = speed > 0;
     }
 
     // Update driver input torque samples
@@ -179,7 +183,7 @@ static int volkswagen_mqb_rx_hook(CANPacket_t *to_push) {
 
     // Signal: Motor_20.MO_Fahrpedalrohwert_01
     if (addr == MSG_MOTOR_20) {
-      gas_pressed = ((GET_BYTES_04(to_push) >> 12) & 0xFFU) != 0U;
+      gas_pressed = ((GET_BYTES(to_push, 0, 4) >> 12) & 0xFFU) != 0U;
     }
 
     // Signal: Motor_14.MO_Fahrer_bremst (ECU detected brake pedal switch F63)
@@ -199,9 +203,7 @@ static int volkswagen_mqb_rx_hook(CANPacket_t *to_push) {
   return valid;
 }
 
-static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
-  UNUSED(longitudinal_allowed);
-
+static int volkswagen_mqb_tx_hook(CANPacket_t *to_send) {
   int addr = GET_ADDR(to_send);
   int tx = 1;
 
@@ -212,12 +214,12 @@ static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowe
   }
 
   // Safety check for HCA_01 Heading Control Assist torque
-  // Signal: HCA_01.Assist_Torque (absolute torque)
-  // Signal: HCA_01.Assist_VZ (direction)
+  // Signal: HCA_01.HCA_01_LM_Offset (absolute torque)
+  // Signal: HCA_01.HCA_01_LM_OffSign (direction)
   if (addr == MSG_HCA_01) {
-    int desired_torque = GET_BYTE(to_send, 2) | ((GET_BYTE(to_send, 3) & 0x3FU) << 8);
-    int sign = (GET_BYTE(to_send, 3) & 0x80U) >> 7;
-    if (sign == 1) {
+    int desired_torque = GET_BYTE(to_send, 2) | ((GET_BYTE(to_send, 3) & 0x1U) << 8);
+    bool sign = GET_BIT(to_send, 31U);
+    if (sign) {
       desired_torque *= -1;
     }
 
@@ -243,15 +245,7 @@ static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowe
       desired_accel = (((GET_BYTE(to_send, 7) << 3) | ((GET_BYTE(to_send, 6) & 0xE0U) >> 5)) * 5U) - 7220U;
     }
 
-    // VW send one increment above the max range when inactive
-    if (desired_accel == 3010) {
-      desired_accel = 0;
-    }
-
-    if (!controls_allowed && (desired_accel != 0)) {
-      violation = 1;
-    }
-    violation |= max_limit_check(desired_accel, VOLKSWAGEN_MQB_MAX_ACCEL, VOLKSWAGEN_MQB_MIN_ACCEL);
+    violation |= longitudinal_accel_checks(desired_accel, VOLKSWAGEN_MQB_LONG_LIMITS);
 
     if (violation) {
       tx = 0;
@@ -271,8 +265,7 @@ static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowe
   return tx;
 }
 
-static int volkswagen_mqb_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
-  int addr = GET_ADDR(to_fwd);
+static int volkswagen_mqb_fwd_hook(int bus_num, int addr) {
   int bus_fwd = -1;
 
   switch (bus_num) {
