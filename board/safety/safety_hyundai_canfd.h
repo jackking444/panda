@@ -262,6 +262,7 @@ static int hyundai_canfd_tx_hook(CANPacket_t *to_send) {
   // steering
   const int steer_addr = (hyundai_canfd_hda2 && !hyundai_longitudinal) ? 0x50 : 0x12a;
   if (addr == steer_addr) {
+    bool alka_enabled = alternative_experience & ALT_EXP_ALKA;
     int desired_torque = (((GET_BYTE(to_send, 6) & 0xFU) << 7U) | (GET_BYTE(to_send, 5) >> 1U)) - 1024U;
     bool steer_req = GET_BIT(to_send, 52U) != 0U;
 
@@ -270,7 +271,7 @@ static int hyundai_canfd_tx_hook(CANPacket_t *to_send) {
       bool violation = false;
       uint32_t ts = microsecond_timer_get();
 
-      if (controls_allowed) {
+      if (alka_enabled || controls_allowed) {
         // *** global torque limit check ***
         violation |= max_limit_check(desired_torque, 384, -384);
 
@@ -281,12 +282,12 @@ static int hyundai_canfd_tx_hook(CANPacket_t *to_send) {
       }
 
       // no torque if controls is not allowed
-      if (!controls_allowed && (desired_torque != 0)) {
+      if ((!alka_enabled && !controls_allowed) && (desired_torque != 0)) {
         violation = true;
       }
 
       // reset to 0 if either controls is not allowed or there's a violation
-      if (violation || !controls_allowed) {
+      if (violation || (!alka_enabled && !controls_allowed)) {
         valid_steer_req_count = 0;
         invalid_steer_req_count = 0;
         desired_torque_last = 0;
