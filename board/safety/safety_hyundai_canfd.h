@@ -216,19 +216,19 @@ static int hyundai_canfd_rx_hook(CANPacket_t *to_push) {
 
     // vehicle moving
     if (addr == 0xa0) {
-      uint32_t speed = 0;
-      for (int i = 8; i < 15; i+=2) {
-        speed += GET_BYTE(to_push, i) | (GET_BYTE(to_push, i + 1) << 8U);
-      }
-      hyundai_canfd_vego = ((float)speed / 4.f) * 0.277778f * 0.03125f;
-      vehicle_moving = (speed / 4U) > HYUNDAI_STANDSTILL_THRSLD;
+      uint32_t front_left_speed = GET_BYTES(to_push, 8, 2);
+      uint32_t rear_right_speed = GET_BYTES(to_push, 14, 2);
+      hyundai_canfd_vego = ((float)(front_left_speed + rear_right_speed) / 4.0f) * 0.277778f * 0.03125f;
+      vehicle_moving = (front_left_speed > HYUNDAI_STANDSTILL_THRSLD) || (rear_right_speed > HYUNDAI_STANDSTILL_THRSLD);
     }
   }
 
   if (valid && (bus == scc_bus)) {
     // cruise state
     if ((addr == 0x1a0) && !hyundai_longitudinal) {
-      bool cruise_engaged = ((GET_BYTE(to_push, 8) >> 4) & 0x3U) != 0U;
+      // 1=enabled, 2=driver override
+      int cruise_status = ((GET_BYTE(to_push, 8) >> 4) & 0x7U);
+      bool cruise_engaged = (cruise_status == 1) || (cruise_status == 2);
       hyundai_common_cruise_state_check(cruise_engaged);
     }
   }
