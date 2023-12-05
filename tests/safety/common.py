@@ -3,7 +3,7 @@ import abc
 import unittest
 import importlib
 import numpy as np
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from opendbc.can.packer import CANPacker  # pylint: disable=import-error
 from panda import ALTERNATIVE_EXPERIENCE
@@ -19,8 +19,10 @@ def sign_of(a):
   return 1 if a > 0 else -1
 
 
-def make_msg(bus, addr, length=8):
-  return libpanda_py.make_CANPacket(addr, bus, b'\x00' * length)
+def make_msg(bus, addr, length=8, dat=None):
+  if dat is None:
+    dat = b'\x00' * length
+  return libpanda_py.make_CANPacket(addr, bus, dat)
 
 
 class CANPackerPanda(CANPacker):
@@ -72,10 +74,6 @@ class PandaSafetyTestBase(unittest.TestCase):
 
   def _tx(self, msg):
     return self.safety.safety_tx_hook(msg)
-
-  def _tx_lin(self, priority: int, lin_num: int, to_addr: int, from_addr: int, dat: bytes):
-    msg = bytes([priority | len(dat), to_addr, from_addr]) + dat
-    return self.safety.safety_tx_lin_hook(lin_num, msg, len(msg))
 
   def _generic_limit_safety_check(self, msg_function: MessageFunction, min_allowed_value: float, max_allowed_value: float,
                                   min_possible_value: float, max_possible_value: float, test_delta: float = 1, inactive_value: float = 0,
@@ -130,13 +128,16 @@ class InterceptorSafetyTest(PandaSafetyTestBase):
       cls.safety = None
       raise unittest.SkipTest
 
-  @abc.abstractmethod
   def _interceptor_gas_cmd(self, gas):
-    pass
+    values = {}
+    if gas > 0:
+      values["GAS_COMMAND"] = gas * 255.
+      values["GAS_COMMAND2"] = gas * 255.
+    return self.packer.make_can_msg_panda("GAS_COMMAND", 0, values)
 
-  @abc.abstractmethod
   def _interceptor_user_gas(self, gas):
-    pass
+    values = {"INTERCEPTOR_GAS": gas, "INTERCEPTOR_GAS2": gas}
+    return self.packer.make_can_msg_panda("GAS_SENSOR", 0, values)
 
   def test_prev_gas_interceptor(self):
     self._rx(self._interceptor_user_gas(0x0))
@@ -826,8 +827,9 @@ class PandaSafetyTest(PandaSafetyTestBase):
               continue
             if attr.startswith('TestToyota') and current_test.startswith('TestToyota'):
               continue
-            if {attr, current_test}.issubset({'TestSubaruGen1TorqueStockLongitudinalSafety', 'TestSubaruGen2TorqueStockLongitudinalSafety',
-                                              'TestSubaruGen1LongitudinalSafety', 'TestSubaruGen2LongitudinalSafety'}):
+            if attr.startswith('TestSubaruGen') and current_test.startswith('TestSubaruGen'):
+              continue
+            if attr.startswith('TestSubaruPreglobal') and current_test.startswith('TestSubaruPreglobal'):
               continue
             if {attr, current_test}.issubset({'TestVolkswagenPqSafety', 'TestVolkswagenPqStockSafety', 'TestVolkswagenPqLongSafety'}):
               continue
@@ -859,7 +861,7 @@ class PandaSafetyTest(PandaSafetyTestBase):
             # TODO: Temporary, should be fixed in panda firmware, safety_honda.h
             if attr.startswith('TestHonda'):
               # exceptions for common msgs across different hondas
-              tx = list(filter(lambda m: m[0] not in [0x1FA, 0x30C, 0x33D], tx))
+              tx = list(filter(lambda m: m[0] not in [0x1FA, 0x30C, 0x33D, 0x33DB], tx))
             all_tx.append([[m[0], m[1], attr] for m in tx])
 
     # make sure we got all the msgs
@@ -879,8 +881,7 @@ class PandaSafetyTest(PandaSafetyTestBase):
 class PandaCarSafetyTest(PandaSafetyTest):
   STANDSTILL_THRESHOLD: Optional[float] = None
   GAS_PRESSED_THRESHOLD = 0
-  RELAY_MALFUNCTION_ADDR: Optional[int] = None
-  RELAY_MALFUNCTION_BUS: Optional[int] = None
+  RELAY_MALFUNCTION_ADDRS: Optional[Dict[int, Tuple[int, ...]]] = None
 
   @classmethod
   def setUpClass(cls):
@@ -918,11 +919,18 @@ class PandaCarSafetyTest(PandaSafetyTest):
     # if that addr is seen on specified bus, triggers the relay malfunction
     # protection logic: both tx_hook and fwd_hook are expected to return failure
     self.assertFalse(self.safety.get_relay_malfunction())
-    self._rx(make_msg(self.RELAY_MALFUNCTION_BUS, self.RELAY_MALFUNCTION_ADDR, 8))
-    self.assertTrue(self.safety.get_relay_malfunction())
     for bus in range(3):
       for addr in self.SCANNED_ADDRS:
-        self.assertEqual(-1, self._tx(make_msg(bus, addr, 8)))
+        self.safety.set_relay_malfunction(False)
+        self._rx(make_msg(bus, addr, 8))
+        should_relay_malfunction = addr in self.RELAY_MALFUNCTION_ADDRS.get(bus, ())
+        self.assertEqual(should_relay_malfunction, self.safety.get_relay_malfunction(), (bus, addr))
+
+    # test relay malfunction protection logic
+    self.safety.set_relay_malfunction(True)
+    for bus in range(3):
+      for addr in self.SCANNED_ADDRS:
+        self.assertFalse(self._tx(make_msg(bus, addr, 8)))
         self.assertEqual(-1, self.safety.safety_fwd_hook(bus, addr))
 
   def test_prev_gas(self):
