@@ -31,10 +31,6 @@ void set_relay_malfunction(bool c){
   relay_malfunction = c;
 }
 
-void set_gas_interceptor_detected(bool c){
-  gas_interceptor_detected = c;
-}
-
 bool get_controls_allowed(void){
   return controls_allowed;
 }
@@ -45,10 +41,6 @@ int get_alternative_experience(void){
 
 bool get_relay_malfunction(void){
   return relay_malfunction;
-}
-
-bool get_gas_interceptor_detected(void){
-  return gas_interceptor_detected;
 }
 
 int get_gas_interceptor_prev(void){
@@ -89,6 +81,10 @@ int get_vehicle_speed_min(void){
 
 int get_vehicle_speed_max(void){
   return vehicle_speed.max;
+}
+
+int get_vehicle_speed_last(void){
+  return vehicle_speed.values[0];
 }
 
 int get_current_safety_mode(void){
