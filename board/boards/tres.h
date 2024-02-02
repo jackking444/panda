@@ -71,7 +71,6 @@ void tres_init(void) {
 }
 
 const board board_tres = {
-  .board_type = "Tres",
   .harness_config = &red_chiplet_harness_config,
   .has_hw_gmlan = false,
   .has_obd = true,
@@ -84,7 +83,6 @@ const board board_tres = {
   .fan_enable_cooldown_time = 3U,
   .init = tres_init,
   .init_bootloader = unused_init_bootloader,
-  .enable_can_transceiver = red_chiplet_enable_can_transceiver,
   .enable_can_transceivers = red_chiplet_enable_can_transceivers,
   .set_led = red_set_led,
   .set_can_mode = red_chiplet_set_can_mode,
