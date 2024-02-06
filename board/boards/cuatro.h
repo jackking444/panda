@@ -33,6 +33,12 @@ void cuatro_init(void) {
   set_gpio_pullup(GPIOD, 8, PULL_NONE);
   set_gpio_mode(GPIOD, 8, MODE_OUTPUT);
 
+  // FDCAN2
+  set_gpio_pullup(GPIOD, 12, PULL_NONE);
+  set_gpio_alternate(GPIOD, 12, GPIO_AF9_FDCAN2);
+  set_gpio_pullup(GPIOD, 13, PULL_NONE);
+  set_gpio_alternate(GPIOD, 13, GPIO_AF9_FDCAN2);
+
   // C2: SOM GPIO used as input (fan control at boot)
   set_gpio_mode(GPIOC, 2, MODE_INPUT);
   set_gpio_pullup(GPIOC, 2, PULL_DOWN);
@@ -62,7 +68,6 @@ void cuatro_init(void) {
 
 const board board_cuatro = {
   .harness_config = &red_chiplet_harness_config,
-  .has_hw_gmlan = false,
   .has_obd = true,
   .has_spi = true,
   .has_canfd = true,
@@ -74,6 +79,7 @@ const board board_cuatro = {
   .init = cuatro_init,
   .init_bootloader = unused_init_bootloader,
   .enable_can_transceiver = cuatro_enable_can_transceiver,
+  .enable_can_transceivers = red_chiplet_enable_can_transceivers,
   .set_led = cuatro_set_led,
   .set_can_mode = red_chiplet_set_can_mode,
   .check_ignition = red_check_ignition,
