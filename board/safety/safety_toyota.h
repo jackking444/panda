@@ -344,9 +344,15 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
   // UDS: Only tester present ("\x0F\x02\x3E\x00\x00\x00\x00\x00") allowed on diagnostics address
   if (addr == 0x750) {
     // this address is sub-addressed. only allow tester present to radar (0xF)
-    bool invalid_uds_msg = (GET_BYTES(to_send, 0, 4) != 0x003E020FU) || (GET_BYTES(to_send, 4, 4) != 0x0U) || (GET_BYTES(to_send, 0, 4) != 0x60100241U) || (GET_BYTES(to_send, 0, 4) != 0x01100241U) || (GET_BYTES(to_send, 0, 4) != 0x60100242U)|| (GET_BYTES(to_send, 0, 4) != 0x01100242U) || (GET_BYTES(to_send, 0, 4) != 0x69210241U) || (GET_BYTES(to_send, 0, 4) != 0x69210242U);
-    if (invalid_uds_msg) {
-      tx = 0;
+    bool invalid_uds_msg = (GET_BYTES(to_send, 0, 4) != 0x003E020FU) || (GET_BYTES(to_send, 4, 4) != 0x0U);
+
+    // DP: Secret sauce.
+    bool dp_valid_uds_msgs = (GET_BYTES(to_send, 0, 4) == 0x10002141) || (GET_BYTES(to_send, 0, 4) == 0x60100241) || (GET_BYTES(to_send, 0, 4) == 0x69210241);
+    dp_valid_uds_msgs |= (GET_BYTES(to_send, 0, 4) == 0x10002142) || (GET_BYTES(to_send, 0, 4) == 0x60100242) || (GET_BYTES(to_send, 0, 4) == 0x10002142) || (GET_BYTES(to_send, 0, 4) == 0x69210242);
+    dp_valid_uds_msgs |= (GET_BYTES(to_send, 0, 4) == 0x11300540);
+
+    if (invalid_uds_msg && !dp_valid_uds_msgs) {
+      tx = false;
     }
   }
 
