@@ -340,8 +340,8 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
       }
     }
     // DP: auto break hold https://github.com/AlexandreSato
-    if (addr == 0x344 && (alternative_experience & ALT_EXP_ALLOW_AEB)) {
-      if(vehicle_moving || gas_pressed || !acc_main_on) {
+    if ((addr == 0x344) && (alternative_experience & ALT_EXP_ALLOW_AEB)) {
+      if (vehicle_moving || gas_pressed || !acc_main_on) {
         tx = false;
       }
     }
@@ -410,7 +410,7 @@ static int toyota_fwd_hook(int bus_num, int addr) {
     // in TSS2 the camera does ACC as well, so filter 0x343
     int is_acc_msg = (addr == 0x343);
     // DP: Block AEB when stoped to use as a automatic brakehold
-    int is_aeb_msg = (addr == 0x344 && (alternative_experience & ALT_EXP_ALLOW_AEB));
+    int is_aeb_msg = ((addr == 0x344) && (alternative_experience & ALT_EXP_ALLOW_AEB));
     int block_msg = is_lkas_msg || (is_acc_msg && !toyota_stock_longitudinal) || (is_aeb_msg && !vehicle_moving && acc_main_on && !gas_pressed);
     if (!block_msg) {
       bus_fwd = 0;
