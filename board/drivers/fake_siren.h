@@ -9,7 +9,7 @@ bool fake_siren_enabled = false;
 
 void fake_siren_codec_enable(bool enabled) {
   if (enabled) {
-    bool success = false;
+    bool success = true;
     success &= i2c_set_reg_bits(I2C5, CODEC_I2C_ADDR, 0x2B, (1U << 1)); // Left speaker mix from INA1
     success &= i2c_set_reg_bits(I2C5, CODEC_I2C_ADDR, 0x2C, (1U << 1)); // Right speaker mix from INA1
     success &= i2c_set_reg_mask(I2C5, CODEC_I2C_ADDR, 0x3D, 0x17, 0b11111); // Left speaker volume
@@ -59,13 +59,13 @@ void fake_siren_init(void) {
   register_set(&DMA1_Stream1->PAR, (uint32_t) &(DAC1->DHR8R1), 0xFFFFFFFFU);
   DMA1_Stream1->NDTR = sizeof(fake_siren_lut);
   register_set(&DMA1_Stream1->FCR, 0U, 0x00000083U);
-  DMA1_Stream1->CR = (0b11 << DMA_SxCR_PL_Pos);
-  DMA1_Stream1->CR |= DMA_SxCR_MINC | DMA_SxCR_CIRC | (1 << DMA_SxCR_DIR_Pos);
+  DMA1_Stream1->CR = (0b11UL << DMA_SxCR_PL_Pos);
+  DMA1_Stream1->CR |= DMA_SxCR_MINC | DMA_SxCR_CIRC | (1U << DMA_SxCR_DIR_Pos);
 
   // Init trigger timer (around 2.5kHz)
   register_set(&TIM7->PSC, 0U, 0xFFFFU);
   register_set(&TIM7->ARR, 133U, 0xFFFFU);
-  register_set(&TIM7->CR2, (0b10 << TIM_CR2_MMS_Pos), TIM_CR2_MMS_Msk);
+  register_set(&TIM7->CR2, (0b10U << TIM_CR2_MMS_Pos), TIM_CR2_MMS_Msk);
   register_set(&TIM7->CR1, TIM_CR1_ARPE | TIM_CR1_URS, 0x088EU);
   TIM7->SR = 0U;
   TIM7->CR1 |= TIM_CR1_CEN;
