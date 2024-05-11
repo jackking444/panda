@@ -1,3 +1,4 @@
+
 from .python.constants import McuType, BASEDIR, FW_PATH, USBPACKET_MAX_SIZE  # noqa: F401
 from .python.spi import PandaSpiException, PandaProtocolMismatch, STBootloaderSPIHandle  # noqa: F401
 from .python.serial import PandaSerial  # noqa: F401
