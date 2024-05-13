@@ -11,7 +11,8 @@ if "DEBUG" in os.environ:
   sys.stdout = sys.stderr
 
 SPEED_NORMAL = 500
-BUS_SPEEDS = [(0, SPEED_NORMAL), (1, SPEED_NORMAL), (2, SPEED_NORMAL)]
+SPEED_GMLAN = 33.3
+BUS_SPEEDS = [(0, SPEED_NORMAL), (1, SPEED_NORMAL), (2, SPEED_NORMAL), (3, SPEED_GMLAN)]
 
 
 JUNGLE_SERIAL = os.getenv("PANDAS_JUNGLE")
@@ -27,6 +28,8 @@ if PARALLEL:
 class PandaGroup:
   H7 = (Panda.HW_TYPE_RED_PANDA, Panda.HW_TYPE_RED_PANDA_V2, Panda.HW_TYPE_TRES)
   GEN2 = (Panda.HW_TYPE_BLACK_PANDA, Panda.HW_TYPE_UNO, Panda.HW_TYPE_DOS) + H7
+  GMLAN = (Panda.HW_TYPE_WHITE_PANDA, Panda.HW_TYPE_GREY_PANDA)
+
   TESTED = (Panda.HW_TYPE_WHITE_PANDA, Panda.HW_TYPE_BLACK_PANDA, Panda.HW_TYPE_RED_PANDA, Panda.HW_TYPE_RED_PANDA_V2, Panda.HW_TYPE_UNO)
 
 if HW_TYPES is not None:
@@ -199,6 +202,7 @@ def fixture_panda_setup(request):
       p.reset(reconnect=True)
 
       p.set_can_loopback(False)
+      p.set_gmlan(None)
       p.set_power_save(False)
       for bus, speed in BUS_SPEEDS:
         p.set_can_speed_kbps(bus, speed)

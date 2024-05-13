@@ -16,7 +16,7 @@ def run_test(sleep_duration):
   print(pandas)
 
   if len(pandas) < 2:
-    raise Exception("Minimum two pandas are needed for test")
+    raise Exception("Two pandas are needed for test")
 
   run_test_w_pandas(pandas, sleep_duration)
 
@@ -37,22 +37,20 @@ def run_test_w_pandas(pandas, sleep_duration):
     print("health", ho[0], h[ho[0]].health())
 
     # **** test can line loopback ****
-    for bus, gmlan in [(0, False), (1, False), (2, False), (1, True), (2, True)]:
+    #    for bus, gmlan in [(0, None), (1, False), (2, False), (1, True), (2, True)]:
+    for bus, gmlan in [(0, None), (1, None)]:
       print("\ntest can", bus)
       # flush
       cans_echo = panda0.can_recv()
       cans_loop = panda1.can_recv()
 
-      panda0.set_gmlan(None)
-      panda1.set_gmlan(None)
-
-      if gmlan is True:
-        panda0.set_gmlan(bus)
-        panda1.set_gmlan(bus)
-        bus = 3
+      if gmlan is not None:
+        panda0.set_gmlan(gmlan, bus)
+        panda1.set_gmlan(gmlan, bus)
 
       # send the characters
-      at = random.randint(1, 2000)
+      # pick addresses high enough to not conflict with honda code
+      at = random.randint(1024, 2000)
       st = get_test_string()[0:8]
       panda0.can_send(at, st, bus)
       time.sleep(0.1)

@@ -3,6 +3,7 @@
 
 #include "drivers/pwm.h"
 #include "drivers/usb.h"
+#include "drivers/gmlan_alt.h"
 #include "drivers/simple_watchdog.h"
 #include "drivers/bootkick.h"
 
